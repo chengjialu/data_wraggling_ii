@@ -1,0 +1,130 @@
+---
+title: "Reading data from web"
+output: github_document
+---
+
+```{r, echo=FALSE, message=FALSE}
+library(tidyverse)
+library(rvest)
+library(httr)
+```
+
+## Extracting tables
+```{r}
+url = "http://samhda.s3-us-gov-west-1.amazonaws.com/s3fs-public/field-uploads/2k15StateFiles/NSDUHsaeShortTermCHG2015.htm"
+drug_use_html = read_html(url)
+
+drug_use_html
+
+drug_use_html %>%
+  html_table()
+```
+
+Select specific area in the html table:
+
+* get the first table in the web page
+* get rid of the first row (Table footnotes)
+```{r}
+table_marj = 
+  drug_use_html %>% 
+  html_table() %>% 
+  first() %>%
+  slice(-1) 
+
+table_marj
+```
+
+
+## CSS Selectors
+How to find the CSS tag? Using the Selector Gadget chorme extension!
+But when you get data online, some developers may know you're pulling data!
+
+IMDB starwar information:
+```{r}
+swm_html = 
+  read_html("https://www.imdb.com/list/ls070150896/")
+
+#pull the data
+title_vec = 
+  swm_html %>%
+  html_elements(".lister-item-header a") %>%
+  html_text()
+
+gross_rev_vec = 
+  swm_html %>%
+  html_elements(".text-small:nth-child(7) span:nth-child(5)") %>%
+  html_text()
+
+runtime_vec = 
+  swm_html %>%
+  html_elements(".runtime") %>%
+  html_text()
+
+#combined the data into a data frame
+swm_df = 
+  tibble(
+    title = title_vec,
+    rev = gross_rev_vec,
+    runtime = runtime_vec)
+
+swm_df
+```
+
+Learning assessment: reviews of the movie “Napoleon Dynamite”
+```{r}
+url = "https://www.amazon.com/product-reviews/B00005JNBQ/ref=cm_cr_arp_d_viewopt_rvwer?ie=UTF8&reviewerType=avp_only_reviews&sortBy=recent&pageNumber=1"
+
+dynamite_html = read_html(url)
+
+review_titles = 
+  dynamite_html %>%
+  html_elements(".a-text-bold span") %>%
+  html_text()
+
+review_stars = 
+  dynamite_html %>%
+  html_elements("#cm_cr-review_list .review-rating") %>%
+  html_text()
+
+review_text = 
+  dynamite_html %>%
+  html_elements(".review-text-content span") %>%
+  html_text()
+
+reviews = tibble(
+  title = review_titles,
+  stars = review_stars,
+  text = review_text
+)
+
+reviews
+```
+
+
+#Using an API
+**NYC Public Data**
+Import this as a CSV and parse it.
+```{r}
+nyc_water = 
+  GET("https://data.cityofnewyork.us/resource/ia2d-e54m.csv") %>% 
+  content("parsed")
+
+#We can also import this dataset as a JSON file. This takes a bit more work (and this is, really, a pretty easy case), but it’s still doable.#
+nyc_water2 = 
+  GET("https://data.cityofnewyork.us/resource/ia2d-e54m.json") %>% 
+  content("text") %>%
+  jsonlite::fromJSON() %>%
+  as_tibble()
+```
+
+
+**BRFSS data**
+Data.gov also has a lot of data available using their API; often this is available as CSV or JSON as well. For example, we might be interested in data coming from BRFSS. This is importable via the API as a CSV (JSON, in this example, is more complicated)
+
+```{r}
+brfss_smart2010 = 
+  GET("https://chronicdata.cdc.gov/resource/acme-vg9e.csv",
+      query = list("$limit" = 5000)) %>% 
+  content("parsed")
+```
+
